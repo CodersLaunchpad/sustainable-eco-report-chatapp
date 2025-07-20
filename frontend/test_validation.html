@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Validation Button</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="styles.css" rel="stylesheet">
+</head>
+<body>
+    <div class="container mt-5">
+        <h3>Test Validation Button</h3>
+        <div id="test-container"></div>
+        <button id="test-btn" class="btn btn-primary">Generate Test Report</button>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="script.js"></script>
+    <script>
+        // Wait for DOM to load
+        document.addEventListener('DOMContentLoaded', () => {
+            setTimeout(() => {
+                document.getElementById('test-btn').addEventListener('click', () => {
+                    // Simulate a report message with validation button
+                    const testReportData = {
+                        generated_at: new Date().toISOString(),
+                        summary: {
+                            sustainability_score: 91.1,
+                            data_points_analyzed: 1000,
+                            key_recommendations: ["Test recommendation 1", "Test recommendation 2"]
+                        }
+                    };
+                    
+                    // Use the chatApp instance to generate a test report
+                    if (chatApp) {
+                        chatApp.addReportMessage("Test report with validation button", testReportData);
+                    } else {
+                        console.error('chatApp not available');
+                    }
+                });
+            }, 1000); // Wait for chatApp to be initialized
+        });
+    </script>
+</body>
+</html>

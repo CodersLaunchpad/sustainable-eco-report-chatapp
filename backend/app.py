@@ -94,6 +94,45 @@ def chat():
             "details": str(e)
         }), 500
 
+@app.route('/validate-report', methods=['POST'])
+def validate_report():
+    try:
+        data = request.get_json()
+        report_text = data.get('report_text', '')
+        report_data = data.get('report_data', {})
+        
+        if not report_text:
+            return jsonify({"error": "Report text is required"}), 400
+        
+        # Forward to report service for validation
+        validation_payload = {
+            "report_text": report_text,
+            "report_data": report_data
+        }
+        
+        validation_response = requests.post(f"{REPORT_SERVICE_URL}/validate", 
+                                          json=validation_payload, timeout=30)
+        
+        if validation_response.status_code == 200:
+            validation_result = validation_response.json()
+            return jsonify(validation_result)
+        else:
+            return jsonify({
+                "error": "Failed to validate report",
+                "status_code": validation_response.status_code
+            }), validation_response.status_code
+            
+    except requests.exceptions.RequestException as e:
+        return jsonify({
+            "error": "Connection error to validation service",
+            "details": str(e)
+        }), 503
+    except Exception as e:
+        return jsonify({
+            "error": "Internal server error",
+            "details": str(e)
+        }), 500
+
 @app.route('/models', methods=['GET'])
 def get_models():
     try:

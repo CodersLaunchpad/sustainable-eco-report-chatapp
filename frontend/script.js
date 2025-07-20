@@ -133,11 +133,14 @@ class ChatApp {
                 ` : ''}
                 
                 <div class="report-actions">
-                    <button class="btn btn-sm btn-outline-success" onclick="this.downloadReport('${reportData.generated_at}')">
+                    <button class="btn btn-sm btn-outline-success" onclick="chatApp.downloadReport('${reportData.generated_at}')">
                         <i class="fas fa-download me-1"></i>Download Report
                     </button>
-                    <button class="btn btn-sm btn-outline-info" onclick="this.viewDetailedData('${reportData.generated_at}')">
+                    <button class="btn btn-sm btn-outline-info" onclick="chatApp.viewDetailedData('${reportData.generated_at}')">
                         <i class="fas fa-eye me-1"></i>View Details
+                    </button>
+                    <button class="btn btn-sm btn-outline-warning validate-btn" onclick="chatApp.validateReport(this)">
+                        <i class="fas fa-check-circle me-1"></i>Validate Facts
                     </button>
                 </div>
             </div>
@@ -178,6 +181,103 @@ class ChatApp {
             .replace(/\n/g, "<br>");
     }
     
+    async validateReport(buttonElement) {
+        const reportMessage = buttonElement.closest('.report-message');
+        const reportData = reportMessage.reportData;
+        const reportText = reportMessage.querySelector('.report-analysis').textContent;
+        
+        buttonElement.disabled = true;
+        buttonElement.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Validating...';
+        
+        try {
+            const response = await fetch(`${this.apiUrl}/validate-report`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ 
+                    report_text: reportText,
+                    report_data: reportData 
+                })
+            });
+            
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
+            const validationResult = await response.json();
+            this.displayValidationResult(reportMessage, validationResult);
+            
+        } catch (error) {
+            console.error('Validation error:', error);
+            this.addMessage('Sorry, I encountered an error while validating the report.', 'bot');
+        } finally {
+            buttonElement.disabled = false;
+            buttonElement.innerHTML = '<i class="fas fa-check-circle me-1"></i>Validate Facts';
+        }
+    }
+    
+    displayValidationResult(reportMessage, validationResult) {
+        let existingValidation = reportMessage.querySelector('.validation-results');
+        if (existingValidation) {
+            existingValidation.remove();
+        }
+        
+        const validationDiv = document.createElement('div');
+        validationDiv.className = 'validation-results mt-3 p-3 border rounded';
+        
+        const accuracy = validationResult.overall_accuracy || 0;
+        const accuracyClass = accuracy >= 90 ? 'text-success' : accuracy >= 70 ? 'text-warning' : 'text-danger';
+        
+        validationDiv.innerHTML = `
+            <h6><i class="fas fa-clipboard-check me-2"></i>Fact Validation Results</h6>
+            <div class="validation-summary mb-3">
+                <span class="badge bg-primary me-2">Overall Accuracy: <span class="${accuracyClass}">${accuracy}%</span></span>
+                <span class="badge bg-info">Facts Checked: ${validationResult.total_facts || 0}</span>
+            </div>
+            
+            ${validationResult.verified_facts && validationResult.verified_facts.length > 0 ? `
+                <div class="verified-facts mb-2">
+                    <strong class="text-success"><i class="fas fa-check me-1"></i>Verified Facts:</strong>
+                    <ul class="list-unstyled ms-3">
+                        ${validationResult.verified_facts.map(fact => `<li class="text-success"><i class="fas fa-check-circle me-1"></i>${this.escapeHtml(fact)}</li>`).join('')}
+                    </ul>
+                </div>
+            ` : ''}
+            
+            ${validationResult.discrepancies && validationResult.discrepancies.length > 0 ? `
+                <div class="discrepancies mb-2">
+                    <strong class="text-warning"><i class="fas fa-exclamation-triangle me-1"></i>Potential Issues:</strong>
+                    <ul class="list-unstyled ms-3">
+                        ${validationResult.discrepancies.map(disc => `<li class="text-warning"><i class="fas fa-exclamation-circle me-1"></i>${this.escapeHtml(disc.issue)} (Reported: ${this.escapeHtml(disc.reported_value)}, Actual: ${this.escapeHtml(disc.actual_value)})</li>`).join('')}
+                    </ul>
+                </div>
+            ` : ''}
+            
+            ${validationResult.errors && validationResult.errors.length > 0 ? `
+                <div class="errors">
+                    <strong class="text-danger"><i class="fas fa-times me-1"></i>Validation Errors:</strong>
+                    <ul class="list-unstyled ms-3">
+                        ${validationResult.errors.map(error => `<li class="text-danger"><i class="fas fa-times-circle me-1"></i>${this.escapeHtml(error)}</li>`).join('')}
+                    </ul>
+                </div>
+            ` : ''}
+        `;
+        
+        reportMessage.querySelector('.message-content').appendChild(validationDiv);
+        this.scrollToBottom();
+    }
+    
+    downloadReport(reportId) {
+        // Placeholder for download functionality
+        this.addMessage('Download feature is not yet implemented.', 'bot');
+    }
+    
+    viewDetailedData(reportId) {
+        // Placeholder for detailed data view functionality
+        this.addMessage('Detailed data view feature is not yet implemented.', 'bot');
+    }
+
     async checkBackendHealth() {
         try {
             const response = await fetch(`${this.apiUrl}/health`);
@@ -192,7 +292,10 @@ class ChatApp {
     }
 }
 
+// Global variable for chat app instance
+let chatApp;
+
 document.addEventListener('DOMContentLoaded', () => {
-    const chatApp = new ChatApp();
+    chatApp = new ChatApp();
     chatApp.checkBackendHealth();
 });

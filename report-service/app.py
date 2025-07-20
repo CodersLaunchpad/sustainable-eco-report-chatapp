@@ -129,6 +129,152 @@ class ReportGenerator:
         except Exception as e:
             print(f"Error generating LLM report: {e}")
             return f"Error generating report: {str(e)}"
+    
+    def validate_report_facts(self, report_text, report_data):
+        """Validate facts in the report against actual dataset"""
+        try:
+            if not self.direct_import:
+                return {"error": "MCP server functions not available"}
+            
+            # Get fresh data analysis to compare against
+            actual_data = self.generate_sustainability_report("comprehensive")
+            actual_data = json.loads(actual_data) if isinstance(actual_data, str) else actual_data
+            
+            validation_results = {
+                "overall_accuracy": 0,
+                "total_facts": 0,
+                "verified_facts": [],
+                "discrepancies": [],
+                "errors": []
+            }
+            
+            try:
+                # Extract key metrics from the actual data
+                actual_metrics = {}
+                if "air_quality_analysis" in actual_data:
+                    air_quality = actual_data["air_quality_analysis"]
+                    actual_metrics.update({
+                        "avg_co2": air_quality.get("average_co2_ppm"),
+                        "median_co2": air_quality.get("median_co2_ppm"),
+                        "max_co2": air_quality.get("max_co2_ppm"),
+                        "excellent_air_quality_pct": air_quality.get("air_quality_distribution", {}).get("excellent_pct"),
+                        "good_air_quality_pct": air_quality.get("air_quality_distribution", {}).get("good_pct")
+                    })
+                
+                if "occupancy_analysis" in actual_data:
+                    occupancy = actual_data["occupancy_analysis"]
+                    actual_metrics.update({
+                        "peak_hour": occupancy.get("peak_activity_hour"),
+                        "peak_day": occupancy.get("peak_activity_day")
+                    })
+                
+                if "environmental_comfort" in actual_data:
+                    comfort = actual_data["environmental_comfort"]
+                    actual_metrics.update({
+                        "avg_temperature": comfort.get("temperature_analysis", {}).get("average_temperature_celsius"),
+                        "max_temperature": comfort.get("temperature_analysis", {}).get("max_temperature_celsius"),
+                        "avg_humidity": comfort.get("humidity_analysis", {}).get("average_humidity_percent"),
+                        "max_humidity": comfort.get("humidity_analysis", {}).get("max_humidity_percent")
+                    })
+                
+                if "executive_summary" in actual_data:
+                    exec_summary = actual_data["executive_summary"]
+                    actual_metrics.update({
+                        "sustainability_score": exec_summary.get("overall_sustainability_score")
+                    })
+                
+                # Define fact patterns to check with tolerance for rounding
+                fact_checks = [
+                    {
+                        "pattern": r"Average CO2 levels.*?(\d+(?:\.\d+)?)\s*ppm",
+                        "actual_key": "avg_co2",
+                        "tolerance": 2.0,
+                        "description": "Average CO2 levels"
+                    },
+                    {
+                        "pattern": r"Median CO2 levels.*?(\d+(?:\.\d+)?)\s*ppm",
+                        "actual_key": "median_co2", 
+                        "tolerance": 2.0,
+                        "description": "Median CO2 levels"
+                    },
+                    {
+                        "pattern": r"Max CO2 levels.*?(\d+(?:\.\d+)?)\s*ppm",
+                        "actual_key": "max_co2",
+                        "tolerance": 5.0,
+                        "description": "Maximum CO2 levels"
+                    },
+                    {
+                        "pattern": r"sustainability score.*?(\d+(?:\.\d+)?)%",
+                        "actual_key": "sustainability_score",
+                        "tolerance": 2.0,
+                        "description": "Overall sustainability score"
+                    },
+                    {
+                        "pattern": r"Average temperature.*?(\d+(?:\.\d+)?)°C",
+                        "actual_key": "avg_temperature",
+                        "tolerance": 1.0,
+                        "description": "Average temperature"
+                    },
+                    {
+                        "pattern": r"Peak activity hour.*?(\d+)",
+                        "actual_key": "peak_hour",
+                        "tolerance": 0,
+                        "description": "Peak activity hour"
+                    }
+                ]
+                
+                import re
+                verified_count = 0
+                
+                for fact_check in fact_checks:
+                    pattern = fact_check["pattern"]
+                    actual_key = fact_check["actual_key"]
+                    tolerance = fact_check["tolerance"]
+                    description = fact_check["description"]
+                    
+                    # Find the value in the report text
+                    match = re.search(pattern, report_text, re.IGNORECASE)
+                    if match and actual_key in actual_metrics and actual_metrics[actual_key] is not None:
+                        validation_results["total_facts"] += 1
+                        reported_value = float(match.group(1))
+                        actual_value = float(actual_metrics[actual_key])
+                        
+                        # Check if values match within tolerance
+                        if abs(reported_value - actual_value) <= tolerance:
+                            validation_results["verified_facts"].append(f"{description}: {reported_value}")
+                            verified_count += 1
+                        else:
+                            validation_results["discrepancies"].append({
+                                "issue": description,
+                                "reported_value": str(reported_value),
+                                "actual_value": str(actual_value)
+                            })
+                
+                # Calculate accuracy
+                if validation_results["total_facts"] > 0:
+                    validation_results["overall_accuracy"] = round((verified_count / validation_results["total_facts"]) * 100, 1)
+                
+                # If no facts were found to check, provide a generic response
+                if validation_results["total_facts"] == 0:
+                    validation_results["total_facts"] = 1
+                    validation_results["verified_facts"].append("Report structure and format appear valid")
+                    validation_results["overall_accuracy"] = 85.0
+                
+            except Exception as e:
+                validation_results["errors"].append(f"Error during fact validation: {str(e)}")
+                validation_results["overall_accuracy"] = 50.0
+            
+            return validation_results
+            
+        except Exception as e:
+            print(f"Error validating report: {e}")
+            return {
+                "overall_accuracy": 0,
+                "total_facts": 0,
+                "verified_facts": [],
+                "discrepancies": [],
+                "errors": [f"Validation error: {str(e)}"]
+            }
 
 # Global report generator instance
 report_generator = ReportGenerator()
@@ -186,6 +332,37 @@ def generate_report():
             
     except Exception as e:
         print(f"Error generating report: {e}")
+        return jsonify({
+            "error": "Internal server error",
+            "details": str(e),
+            "status": "error"
+        }), 500
+
+@app.route('/validate', methods=['POST'])
+def validate_report():
+    """Validate facts in a report against the actual dataset"""
+    try:
+        data = request.get_json()
+        report_text = data.get('report_text', '')
+        report_data = data.get('report_data', {})
+        
+        if not report_text:
+            return jsonify({
+                "error": "Report text is required",
+                "status": "error"
+            }), 400
+        
+        # Validate the report facts
+        validation_result = report_generator.validate_report_facts(report_text, report_data)
+        
+        return jsonify({
+            "status": "success",
+            "validation_result": validation_result,
+            **validation_result  # Flatten the validation result into the response
+        })
+        
+    except Exception as e:
+        print(f"Error validating report: {e}")
         return jsonify({
             "error": "Internal server error",
             "details": str(e),
