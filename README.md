@@ -40,13 +40,13 @@ cp .env.example .env
 
 ```bash
 # Backend dependencies
-cd backend && pip install -r requirements.txt && cd ..
+. venv/bin/activate && cd backend && pip install -r requirements.txt && cd ..
 
 # MCP Service dependencies
-cd mcp-service && pip install -r requirements.txt && cd ..
+. venve/bin/activate && cd mcp-service && pip install -r requirements.txt && cd ..
 
 # Report Service dependencies
-cd report-service && pip install -r requirements.txt && cd ..
+. venve/bin/activate && cd report-service && pip install -r requirements.txt && cd ..
 ```
 
 ### 3. Start All Services (4 Terminals Required)
