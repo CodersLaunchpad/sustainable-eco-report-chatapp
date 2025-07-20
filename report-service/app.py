@@ -12,7 +12,9 @@ import json
 from datetime import datetime
 from dotenv import load_dotenv
 import asyncio
-from mcp_use import MCPClient
+import sys
+import os
+sys.path.append(os.path.abspath("../mcp-service/src"))
 
 load_dotenv('../.env', override=True)
 
@@ -25,30 +27,41 @@ MODEL_NAME = os.getenv('MODEL_NAME', 'llama3.1')
 
 class ReportGenerator:
     def __init__(self):
-        self.mcp_client = None
-        self.mcp_config = {
-            "mcpServers": {
-                "smart_home_data": {
-                    "command": "python",
-                    "args": [os.path.abspath("../mcp-service/src/server.py")],
-                    "cwd": os.path.abspath("../mcp-service")
-                }
-            }
-        }
-    
-    async def get_mcp_client(self):
-        """Initialize MCP client connection"""
-        if self.mcp_client is None:
-            self.mcp_client = MCPClient.from_dict(self.mcp_config)
-            await self.mcp_client.connect()
-        return self.mcp_client
+        # Import the MCP server functions directly
+        try:
+            from server import (
+                get_data_summary, 
+                analyze_co2_levels, 
+                analyze_occupancy_patterns,
+                get_environmental_comfort_analysis,
+                generate_sustainability_report,
+                load_dataset
+            )
+            # Load the dataset
+            load_dataset()
+            
+            # Store the function objects (they are FunctionTool objects, not regular functions)
+            # Access the underlying function using .fn attribute
+            self.get_data_summary = get_data_summary.fn if hasattr(get_data_summary, 'fn') else get_data_summary
+            self.analyze_co2_levels = analyze_co2_levels.fn if hasattr(analyze_co2_levels, 'fn') else analyze_co2_levels
+            self.analyze_occupancy_patterns = analyze_occupancy_patterns.fn if hasattr(analyze_occupancy_patterns, 'fn') else analyze_occupancy_patterns
+            self.get_environmental_comfort_analysis = get_environmental_comfort_analysis.fn if hasattr(get_environmental_comfort_analysis, 'fn') else get_environmental_comfort_analysis
+            self.generate_sustainability_report = generate_sustainability_report.fn if hasattr(generate_sustainability_report, 'fn') else generate_sustainability_report
+            self.direct_import = True
+            
+        except ImportError as e:
+            print(f"Could not import MCP server functions: {e}")
+            self.direct_import = False
     
     async def get_building_data_summary(self):
         """Get data summary from MCP server"""
         try:
-            client = await self.get_mcp_client()
-            result = await client.call_tool("smart_home_data", "get_data_summary", {})
-            return json.loads(result.content[0].text) if result.content else None
+            if self.direct_import:
+                # Call the underlying function directly
+                result = self.get_data_summary()
+                return json.loads(result) if isinstance(result, str) else result
+            else:
+                return {"error": "MCP server functions not available"}
         except Exception as e:
             print(f"Error getting data summary: {e}")
             return None
@@ -56,18 +69,21 @@ class ReportGenerator:
     async def analyze_sustainability_data(self, analysis_type="comprehensive"):
         """Get sustainability analysis from MCP server"""
         try:
-            client = await self.get_mcp_client()
+            if not self.direct_import:
+                return {"error": "MCP server functions not available"}
             
+            # Call the appropriate function based on analysis type
             if analysis_type == "co2":
-                result = await client.call_tool("smart_home_data", "analyze_co2_levels", {})
+                result = self.analyze_co2_levels()
             elif analysis_type == "occupancy":
-                result = await client.call_tool("smart_home_data", "analyze_occupancy_patterns", {})
+                result = self.analyze_occupancy_patterns()
             elif analysis_type == "comfort":
-                result = await client.call_tool("smart_home_data", "get_environmental_comfort_analysis", {})
+                result = self.get_environmental_comfort_analysis()
             else:  # comprehensive
-                result = await client.call_tool("smart_home_data", "generate_sustainability_report", {"report_type": "comprehensive"})
+                result = self.generate_sustainability_report("comprehensive")
             
-            return json.loads(result.content[0].text) if result.content else None
+            return json.loads(result) if isinstance(result, str) else result
+                
         except Exception as e:
             print(f"Error analyzing data: {e}")
             return None

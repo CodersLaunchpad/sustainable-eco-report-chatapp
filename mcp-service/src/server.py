@@ -14,6 +14,21 @@ import json
 
 from fastmcp import FastMCP
 
+def convert_numpy_types(obj):
+    """Recursively convert numpy types to native Python types for JSON serialization"""
+    if isinstance(obj, np.integer):
+        return int(obj)
+    elif isinstance(obj, np.floating):
+        return float(obj)
+    elif isinstance(obj, np.bool_):
+        return bool(obj)
+    elif isinstance(obj, dict):
+        return {key: convert_numpy_types(value) for key, value in obj.items()}
+    elif isinstance(obj, list):
+        return [convert_numpy_types(item) for item in obj]
+    else:
+        return obj
+
 # Initialize the MCP server
 mcp = FastMCP("Smart Home Data Server")
 
@@ -48,45 +63,45 @@ def get_data_summary() -> str:
         return "No data available"
     
     summary = {
-        "total_records": len(building_data),
+        "total_records": int(len(building_data)),
         "date_range": {
             "start": building_data['datetime'].min().isoformat(),
             "end": building_data['datetime'].max().isoformat()
         },
-        "building_id": building_data['building_id'].iloc[0],
+        "building_id": str(building_data['building_id'].iloc[0]),
         "sensors": {
             "co2": {
-                "available_records": building_data['co2'].notna().sum(),
-                "avg_value": round(building_data['co2'].mean(), 2) if building_data['co2'].notna().any() else None,
-                "min_value": round(building_data['co2'].min(), 2) if building_data['co2'].notna().any() else None,
-                "max_value": round(building_data['co2'].max(), 2) if building_data['co2'].notna().any() else None
+                "available_records": int(building_data['co2'].notna().sum()),
+                "avg_value": float(round(building_data['co2'].mean(), 2)) if bool(building_data['co2'].notna().any()) else None,
+                "min_value": float(round(building_data['co2'].min(), 2)) if bool(building_data['co2'].notna().any()) else None,
+                "max_value": float(round(building_data['co2'].max(), 2)) if bool(building_data['co2'].notna().any()) else None
             },
             "temperature": {
-                "available_records": building_data['temperature'].notna().sum(),
-                "avg_value": round(building_data['temperature'].mean(), 2) if building_data['temperature'].notna().any() else None,
-                "min_value": round(building_data['temperature'].min(), 2) if building_data['temperature'].notna().any() else None,
-                "max_value": round(building_data['temperature'].max(), 2) if building_data['temperature'].notna().any() else None
+                "available_records": int(building_data['temperature'].notna().sum()),
+                "avg_value": float(round(building_data['temperature'].mean(), 2)) if bool(building_data['temperature'].notna().any()) else None,
+                "min_value": float(round(building_data['temperature'].min(), 2)) if bool(building_data['temperature'].notna().any()) else None,
+                "max_value": float(round(building_data['temperature'].max(), 2)) if bool(building_data['temperature'].notna().any()) else None
             },
             "humidity": {
-                "available_records": building_data['humidity'].notna().sum(),
-                "avg_value": round(building_data['humidity'].mean(), 2) if building_data['humidity'].notna().any() else None,
-                "min_value": round(building_data['humidity'].min(), 2) if building_data['humidity'].notna().any() else None,
-                "max_value": round(building_data['humidity'].max(), 2) if building_data['humidity'].notna().any() else None
+                "available_records": int(building_data['humidity'].notna().sum()),
+                "avg_value": float(round(building_data['humidity'].mean(), 2)) if bool(building_data['humidity'].notna().any()) else None,
+                "min_value": float(round(building_data['humidity'].min(), 2)) if bool(building_data['humidity'].notna().any()) else None,
+                "max_value": float(round(building_data['humidity'].max(), 2)) if bool(building_data['humidity'].notna().any()) else None
             },
             "light": {
-                "available_records": building_data['light'].notna().sum(),
-                "avg_value": round(building_data['light'].mean(), 2) if building_data['light'].notna().any() else None,
-                "min_value": round(building_data['light'].min(), 2) if building_data['light'].notna().any() else None,
-                "max_value": round(building_data['light'].max(), 2) if building_data['light'].notna().any() else None
+                "available_records": int(building_data['light'].notna().sum()),
+                "avg_value": float(round(building_data['light'].mean(), 2)) if bool(building_data['light'].notna().any()) else None,
+                "min_value": float(round(building_data['light'].min(), 2)) if bool(building_data['light'].notna().any()) else None,
+                "max_value": float(round(building_data['light'].max(), 2)) if bool(building_data['light'].notna().any()) else None
             },
             "pir_motion": {
-                "available_records": building_data['pir'].notna().sum(),
-                "total_motion_events": int(building_data['pir'].sum()) if building_data['pir'].notna().any() else 0
+                "available_records": int(building_data['pir'].notna().sum()),
+                "total_motion_events": int(building_data['pir'].sum()) if bool(building_data['pir'].notna().any()) else 0
             }
         }
     }
     
-    return json.dumps(summary, indent=2)
+    return json.dumps(convert_numpy_types(summary), indent=2)
 
 @mcp.tool()
 def analyze_co2_levels(start_date: str = "", end_date: str = "") -> str:
@@ -114,44 +129,44 @@ def analyze_co2_levels(start_date: str = "", end_date: str = "") -> str:
     if co2_data.empty:
         return "No CO2 data available for the specified period"
     
-    # CO2 level categories (ppm)
-    excellent = (co2_data <= 400).sum()
-    good = ((co2_data > 400) & (co2_data <= 600)).sum()
-    acceptable = ((co2_data > 600) & (co2_data <= 1000)).sum()
-    poor = ((co2_data > 1000) & (co2_data <= 1500)).sum()
-    very_poor = (co2_data > 1500).sum()
+    # CO2 level categories (ppm) - convert to native Python types
+    excellent = int((co2_data <= 400).sum())
+    good = int(((co2_data > 400) & (co2_data <= 600)).sum())
+    acceptable = int(((co2_data > 600) & (co2_data <= 1000)).sum())
+    poor = int(((co2_data > 1000) & (co2_data <= 1500)).sum())
+    very_poor = int((co2_data > 1500).sum())
     
     analysis = {
         "period": {
             "start": df['datetime'].min().isoformat(),
             "end": df['datetime'].max().isoformat(),
-            "total_readings": len(co2_data)
+            "total_readings": int(len(co2_data))
         },
         "co2_statistics": {
-            "average_ppm": round(co2_data.mean(), 2),
-            "median_ppm": round(co2_data.median(), 2),
-            "min_ppm": round(co2_data.min(), 2),
-            "max_ppm": round(co2_data.max(), 2),
-            "std_ppm": round(co2_data.std(), 2)
+            "average_ppm": float(round(co2_data.mean(), 2)),
+            "median_ppm": float(round(co2_data.median(), 2)),
+            "min_ppm": float(round(co2_data.min(), 2)),
+            "max_ppm": float(round(co2_data.max(), 2)),
+            "std_ppm": float(round(co2_data.std(), 2))
         },
         "air_quality_distribution": {
-            "excellent_0_400ppm": {"count": excellent, "percentage": round(excellent/len(co2_data)*100, 1)},
-            "good_400_600ppm": {"count": good, "percentage": round(good/len(co2_data)*100, 1)},
-            "acceptable_600_1000ppm": {"count": acceptable, "percentage": round(acceptable/len(co2_data)*100, 1)},
-            "poor_1000_1500ppm": {"count": poor, "percentage": round(poor/len(co2_data)*100, 1)},
-            "very_poor_1500plus_ppm": {"count": very_poor, "percentage": round(very_poor/len(co2_data)*100, 1)}
+            "excellent_0_400ppm": {"count": excellent, "percentage": float(round(excellent/len(co2_data)*100, 1))},
+            "good_400_600ppm": {"count": good, "percentage": float(round(good/len(co2_data)*100, 1))},
+            "acceptable_600_1000ppm": {"count": acceptable, "percentage": float(round(acceptable/len(co2_data)*100, 1))},
+            "poor_1000_1500ppm": {"count": poor, "percentage": float(round(poor/len(co2_data)*100, 1))},
+            "very_poor_1500plus_ppm": {"count": very_poor, "percentage": float(round(very_poor/len(co2_data)*100, 1))}
         },
         "sustainability_insights": {
             "overall_rating": "excellent" if co2_data.mean() <= 400 else 
                             "good" if co2_data.mean() <= 600 else
                             "acceptable" if co2_data.mean() <= 1000 else
                             "poor" if co2_data.mean() <= 1500 else "very_poor",
-            "ventilation_needed": co2_data.mean() > 1000,
-            "energy_efficiency_score": max(0, 100 - (co2_data.mean() - 400) / 10)
+            "ventilation_needed": bool(co2_data.mean() > 1000),
+            "energy_efficiency_score": float(max(0, 100 - (co2_data.mean() - 400) / 10))
         }
     }
     
-    return json.dumps(analysis, indent=2)
+    return json.dumps(convert_numpy_types(analysis), indent=2)
 
 @mcp.tool()
 def analyze_occupancy_patterns() -> str:
@@ -170,13 +185,13 @@ def analyze_occupancy_patterns() -> str:
     if pir_data.empty:
         return "No motion sensor data available"
     
-    # Analyze patterns
-    hourly_activity = pir_data.groupby('hour')['pir'].sum().to_dict()
-    daily_activity = pir_data.groupby('day_of_week')['pir'].sum().to_dict()
+    # Analyze patterns - convert numpy types to native Python types
+    hourly_activity = {int(k): int(v) for k, v in pir_data.groupby('hour')['pir'].sum().to_dict().items()}
+    daily_activity = {str(k): int(v) for k, v in pir_data.groupby('day_of_week')['pir'].sum().to_dict().items()}
     
     total_motion_events = int(pir_data['pir'].sum())
-    peak_hour = max(hourly_activity, key=hourly_activity.get)
-    peak_day = max(daily_activity, key=daily_activity.get)
+    peak_hour = int(max(hourly_activity, key=hourly_activity.get))
+    peak_day = str(max(daily_activity, key=daily_activity.get))
     
     analysis = {
         "occupancy_summary": {
@@ -191,8 +206,8 @@ def analyze_occupancy_patterns() -> str:
         "hourly_pattern": hourly_activity,
         "daily_pattern": daily_activity,
         "energy_optimization_insights": {
-            "high_usage_hours": [hour for hour, count in hourly_activity.items() if count > np.mean(list(hourly_activity.values()))],
-            "low_usage_hours": [hour for hour, count in hourly_activity.items() if count < np.mean(list(hourly_activity.values())) * 0.5],
+            "high_usage_hours": [int(hour) for hour, count in hourly_activity.items() if count > float(np.mean(list(hourly_activity.values())))],
+            "low_usage_hours": [int(hour) for hour, count in hourly_activity.items() if count < float(np.mean(list(hourly_activity.values()))) * 0.5],
             "recommendations": [
                 "Reduce HVAC during low occupancy hours",
                 "Optimize lighting schedules based on motion patterns",
@@ -201,7 +216,7 @@ def analyze_occupancy_patterns() -> str:
         }
     }
     
-    return json.dumps(analysis, indent=2)
+    return json.dumps(convert_numpy_types(analysis), indent=2)
 
 @mcp.tool()
 def get_environmental_comfort_analysis() -> str:
@@ -226,32 +241,32 @@ def get_environmental_comfort_analysis() -> str:
     
     if not temp_data.empty:
         # Optimal temperature range: 20-24°C
-        optimal_temp = ((temp_data >= 20) & (temp_data <= 24)).sum()
+        optimal_temp = int(((temp_data >= 20) & (temp_data <= 24)).sum())
         analysis["temperature_analysis"] = {
-            "average_celsius": round(temp_data.mean(), 2),
-            "min_celsius": round(temp_data.min(), 2),
-            "max_celsius": round(temp_data.max(), 2),
+            "average_celsius": float(round(temp_data.mean(), 2)),
+            "min_celsius": float(round(temp_data.min(), 2)),
+            "max_celsius": float(round(temp_data.max(), 2)),
             "optimal_range_20_24c": {
                 "count": optimal_temp,
-                "percentage": round(optimal_temp/len(temp_data)*100, 1)
+                "percentage": float(round(optimal_temp/len(temp_data)*100, 1))
             },
-            "too_cold_below_20c": ((temp_data < 20).sum()),
-            "too_warm_above_24c": ((temp_data > 24).sum())
+            "too_cold_below_20c": int((temp_data < 20).sum()),
+            "too_warm_above_24c": int((temp_data > 24).sum())
         }
     
     if not humidity_data.empty:
         # Optimal humidity range: 40-60%
-        optimal_humidity = ((humidity_data >= 40) & (humidity_data <= 60)).sum()
+        optimal_humidity = int(((humidity_data >= 40) & (humidity_data <= 60)).sum())
         analysis["humidity_analysis"] = {
-            "average_percent": round(humidity_data.mean(), 2),
-            "min_percent": round(humidity_data.min(), 2),
-            "max_percent": round(humidity_data.max(), 2),
+            "average_percent": float(round(humidity_data.mean(), 2)),
+            "min_percent": float(round(humidity_data.min(), 2)),
+            "max_percent": float(round(humidity_data.max(), 2)),
             "optimal_range_40_60": {
                 "count": optimal_humidity,
-                "percentage": round(optimal_humidity/len(humidity_data)*100, 1)
+                "percentage": float(round(optimal_humidity/len(humidity_data)*100, 1))
             },
-            "too_dry_below_40": ((humidity_data < 40).sum()),
-            "too_humid_above_60": ((humidity_data > 60).sum())
+            "too_dry_below_40": int((humidity_data < 40).sum()),
+            "too_humid_above_60": int((humidity_data > 60).sum())
         }
     
     # Combined comfort analysis
@@ -259,16 +274,16 @@ def get_environmental_comfort_analysis() -> str:
         # Find records with both temp and humidity data
         combined_data = df[df['temperature'].notna() & df['humidity'].notna()]
         if not combined_data.empty:
-            comfort_count = len(combined_data[
+            comfort_count = int(len(combined_data[
                 (combined_data['temperature'] >= 20) & (combined_data['temperature'] <= 24) &
                 (combined_data['humidity'] >= 40) & (combined_data['humidity'] <= 60)
-            ])
+            ]))
             analysis["comfort_insights"] = {
                 "optimal_comfort_conditions": {
                     "count": comfort_count,
-                    "percentage": round(comfort_count/len(combined_data)*100, 1)
+                    "percentage": float(round(comfort_count/len(combined_data)*100, 1))
                 },
-                "energy_efficiency_score": min(100, comfort_count/len(combined_data)*100 + 20),
+                "energy_efficiency_score": float(min(100, comfort_count/len(combined_data)*100 + 20)),
                 "recommendations": [
                     "Maintain temperature between 20-24°C for optimal comfort",
                     "Keep humidity between 40-60% to prevent mold and dryness",
@@ -290,11 +305,11 @@ def generate_sustainability_report(report_type: str = "comprehensive") -> str:
     if building_data.empty:
         return "No data available for report generation"
     
-    # Get all analysis data
-    co2_analysis = json.loads(analyze_co2_levels())
-    occupancy_analysis = json.loads(analyze_occupancy_patterns())
-    comfort_analysis = json.loads(get_environmental_comfort_analysis())
-    data_summary = json.loads(get_data_summary())
+    # Get all analysis data - access the underlying functions using .fn
+    co2_analysis = json.loads(analyze_co2_levels.fn())
+    occupancy_analysis = json.loads(analyze_occupancy_patterns.fn())
+    comfort_analysis = json.loads(get_environmental_comfort_analysis.fn())
+    data_summary = json.loads(get_data_summary.fn())
     
     report = {
         "report_metadata": {
@@ -325,7 +340,7 @@ def generate_sustainability_report(report_type: str = "comprehensive") -> str:
     if "comfort_insights" in comfort_analysis:
         scores.append(comfort_analysis["comfort_insights"].get("energy_efficiency_score", 50))
     
-    overall_score = round(np.mean(scores), 1) if scores else 50
+    overall_score = float(round(np.mean(scores), 1)) if scores else 50.0
     report["executive_summary"]["overall_sustainability_score"] = overall_score
     
     # Key findings
@@ -351,7 +366,7 @@ def generate_sustainability_report(report_type: str = "comprehensive") -> str:
     report["recommendations"] = recommendations
     report["executive_summary"]["priority_recommendations"] = recommendations[:3]
     
-    return json.dumps(report, indent=2)
+    return json.dumps(convert_numpy_types(report), indent=2)
 
 if __name__ == "__main__":
     print("Starting Smart Home Data MCP Server...")
