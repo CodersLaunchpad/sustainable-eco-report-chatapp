@@ -208,3 +208,4 @@ __marimo__/
 dataset/*.csv
 # mcp-service/src/server.py
 .python-version
+.DS_Store
